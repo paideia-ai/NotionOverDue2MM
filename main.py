@@ -13,11 +13,33 @@ def fetch_overdue_tasks(api_key, database_id):
   }
   # Data for POST request to find tasks due before today
   today = datetime.now().strftime("%Y-%m-%d")
-  data = {"filter": {"property": "Due", "date": {"before": today}}}
+  # data = {"filter": {"property": "Due", "date": {"before": today}}}
+  data = {
+      "filter": {
+          "and": [{
+              "property": "Due",
+              "date": {
+                  "before": today
+              }
+          }, {
+              "property": "Status",
+              "status": {
+                  "does_not_equal": "Done"
+              }
+          }, {
+              "property": "Status",
+              "status": {
+                  "does_not_equal": "Archived"
+              }
+          }]
+      }
+  }
   response = requests.post(query_url, headers=headers, json=data)
   tasks = response.json().get('results', [])
 
-  # Function to fetch user name from user ID
+  # print(tasks[:3]) #for debug purpose
+
+  # Function to fetch user name from user ID , not used anymore
   def get_user_name(user_id):
     user_url = f'https://api.notion.com/v1/users/{user_id}'
     user_response = requests.get(user_url, headers=headers)
@@ -38,11 +60,16 @@ def fetch_overdue_tasks(api_key, database_id):
     due_date = parse_date(task['properties']['Due']['date']['start'])
     if due_date < current_date:
       task_name = task['properties']['Task name']['title'][0]['plain_text']
-      assignee_id = task['properties']['Assignee']['people'][0]['id']
+      # assignee_id = task['properties']['Assignee']['people'][0]['id']
       status = task['properties']['Status']['status']['name']
       days_overdue = days_between(due_date, current_date)
       page_url = task['url']
-      assignee_name = get_user_name(assignee_id)
+      # assignee_name = get_user_name(assignee_id)
+      assignee_name = task['properties']['Assignee']['people'][0]['name']
+
+      #debug code here
+      # if "competitors" in task_name:
+      # print(task)
 
       summary += f"## {task_name}\n"
       summary += f"- {assignee_name}\n"
@@ -53,8 +80,33 @@ def fetch_overdue_tasks(api_key, database_id):
   return summary
 
 
-# Example usage:
+# retrieve notion overdue
 api_key = os.environ['NOTION_API']
-
 database_id = 'a05b2e9a2a38458db15a682ce03e9a4c'
-print(fetch_overdue_tasks(api_key, database_id))
+notion_tasks = fetch_overdue_tasks(api_key, database_id)
+
+
+def post_to_mattermost(channel_id, message, bot_token):
+  url = 'https://mattermost.paideia.uno/api/v4/posts'
+  headers = {
+      'Content-Type': 'application/json',
+      'Authorization': f'Bearer {bot_token}'
+  }
+  data = {
+      'channel_id': channel_id,
+      'message': message,
+  }
+  response = requests.post(url, headers=headers, json=data)
+  if response.status_code == 201:
+    print('Message posted to Mattermost successfully.')
+  else:
+    print(
+        f'Failed to post message to Mattermost. Status code: {response.status_code}'
+    )
+
+
+# Example call to post_to_mattermost function
+# Ensure you replace 'your_bot_token_here' with your actual Mattermost bot token
+
+mm_bot_acc = os.environ['MM_BOT_ACC']
+post_to_mattermost('a9mk36w6htbdtbeddf4za19pph', notion_tasks, mm_bot_acc)
