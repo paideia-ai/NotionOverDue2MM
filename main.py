@@ -62,15 +62,20 @@ def fetch_overdue_upcoming_tasks(api_key, database_id):
     current_date = datetime.now()
     for task in tasks:
         due_date = parse_date(task['properties']['Due']['date']['start'])
+        if task['properties']['Assignee'][
+                'people']:  # Check if the list is not empty
+            assignee_name = task['properties']['Assignee']['people'][0]['name']
+        else:
+            assignee_name = "No assignee"  # Or handle the situation as appropriate
         if due_date < current_date:
             task_name = task['properties']['Task name']['title'][0][
                 'plain_text']
             status = task['properties']['Status']['status']['name']
             days_overdue = days_between(due_date, current_date)
             page_url = task['url']
-            assignee_name = task['properties']['Assignee']['people'][0]['name']
+            # assignee_name = task['properties']['Assignee']['people'][0]['name']
 
-            summary += f"## {task_name}\n"
+            summary += f"### {task_name}\n"
             summary += f"- {assignee_name}\n"
             summary += f"- {status}\n"
             summary += f"- {days_overdue} days overdue\n"
@@ -82,9 +87,8 @@ def fetch_overdue_upcoming_tasks(api_key, database_id):
             status = task['properties']['Status']['status']['name']
             days_until_due = (due_date - current_date).days
             page_url = task['url']
-            assignee_name = task['properties']['Assignee']['people'][0]['name']
 
-            upcoming_summary += f"## {task_name}\n"
+            upcoming_summary += f"### {task_name}\n"
             upcoming_summary += f"- {assignee_name}\n"
             upcoming_summary += f"- {status}\n"
             upcoming_summary += f"- Due in {days_until_due} days\n"
